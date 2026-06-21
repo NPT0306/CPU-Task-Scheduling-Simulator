@@ -1,7 +1,15 @@
-import Process 
-import PriorityQueue
-import RoundRobinQueue
+from Process import Process 
+from PriorityQueue import PriorityQueue
+from RoundRobinQueue import RoundRobinQueue
 class Schedule:
+    def __init__(self, quantum=2):
+        self.priority_queue = PriorityQueue()
+        self.round_robin_queue = RoundRobinQueue()
+        self.process_storage = []
+        self.gantt_history = []
+        self.event_log = []
+        self.clock = 0
+        self.quantum = quantum
     def add_process(self, process_name,burst_time,process_type, priority):
         if process_name == "" or burst_time <= 0:
             print("Invalid Input")
@@ -40,7 +48,7 @@ class Schedule:
         process.remaining_time -= 1
         self.gantt_history.append(process.name)
         if process.remaining_time == 0:
-            process.completed = True
+            process.finish(self.clock)
         else:
             if process.process_type == "SYSTEM":
                 self.priority_queue.enqueue(process)
@@ -71,8 +79,8 @@ class Schedule:
             average_turnaround = (total_turnaround / completed)
         else:
             average_turnaround = 0
-        completion_ratio = (completed / len(self.process_storage))
-        return (average_turnaround,completion_ratio,self.clock)
+        completion_ratio = (completed / len(self.process_storage)) if self.process_storage else 0
+        return (average_turnaround, completion_ratio, self.clock)
 
     def set_quantum(self, value):
         if value < 1:

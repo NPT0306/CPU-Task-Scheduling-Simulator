@@ -7,8 +7,17 @@ class Process:
         self.priority = priority
         self.arrival_time = 0
         self.finish_time = None
+        self.turnaround_time = None
         self.completed = False
+
     def run_one_tick(self):
         self.remaining_time -= 1
+
     def is_finished(self):
         return self.remaining_time <= 0
+
+    def finish(self, current_time):
+        """Gọi khi process hoàn thành để chốt finish_time và turnaround_time."""
+        self.finish_time = current_time
+        self.turnaround_time = self.finish_time - self.arrival_time
+        self.completed = True
