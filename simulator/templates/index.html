@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CPU Task Scheduling Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+
+:root {
+  --bg: #11161d;
+  --panel: #182029;
+  --panel-alt: #1f2a35;
+  --panel-raised: #232f3b;
+  --border: #2a3543;
+  --border-soft: #212b37;
+  --text: #e7eaee;
+  --text-dim: #8c99aa;
+  --text-faint: #5b6b7d;
+
+  --amber: #ffb454;
+  --amber-dim: rgba(255, 180, 84, 0.14);
+  --cyan: #43c6d9;
+  --cyan-dim: rgba(67, 198, 217, 0.14);
+  --green: #5fbf8b;
+  --green-dim: rgba(95, 191, 139, 0.14);
+  --red: #e2685c;
+  --red-dim: rgba(226, 104, 92, 0.14);
+
+  --font-display: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+
+  --radius: 6px;
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 20px -12px rgba(0, 0, 0, 0.6);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(67, 198, 217, 0.05), transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(255, 180, 84, 0.05), transparent 40%);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a { color: var(--cyan); }
+
+/* ---------- layout shell ---------- */
+
+.console-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px 64px;
+}
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 28px 0 22px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 24px;
+}
+
+.brand-eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 4px;
+}
+
+.brand-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.brand-title .accent { color: var(--amber); }
+.brand-title .accent-cyan { color: var(--cyan); }
+
+.header-readouts {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.readout {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 18px;
+  text-align: center;
+  min-width: 96px;
+}
+
+.readout .readout-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.readout .readout-value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--amber);
+  text-shadow: 0 0 18px rgba(255, 180, 84, 0.35);
+}
+
+.readout.cyan .readout-value {
+  color: var(--cyan);
+  text-shadow: 0 0 18px rgba(67, 198, 217, 0.35);
+}
+
+/* ---------- flash messages ---------- */
+
+.flash-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.flash {
+  font-family: var(--font-display);
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.flash::before {
+  content: '>';
+  color: var(--text-faint);
+}
+
+.flash.success { border-color: rgba(95, 191, 139, 0.4); background: var(--green-dim); color: var(--green); }
+.flash.error { border-color: rgba(226, 104, 92, 0.4); background: var(--red-dim); color: var(--red); }
+.flash.info { border-color: var(--border); background: var(--panel-alt); color: var(--text-dim); }
+.flash.warning { border-color: rgba(255, 180, 84, 0.4); background: var(--amber-dim); color: var(--amber); }
+
+/* ---------- grid ---------- */
+
+.console-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .console-grid { grid-template-columns: 1fr; }
+}
+
+.stack { display: flex; flex-direction: column; gap: 20px; }
+
+/* ---------- cards ---------- */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-panel);
+  padding: 18px 20px 20px;
+  animation: rise 0.45s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.panel-eyebrow {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-eyebrow .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  flex: none;
+}
+
+.panel-eyebrow.amber .dot { background: var(--amber); box-shadow: 0 0 8px rgba(255,180,84,.7); }
+.panel-eyebrow.cyan .dot { background: var(--cyan); box-shadow: 0 0 8px rgba(67,198,217,.7); }
+
+/* ---------- forms ---------- */
+
+.field { margin-bottom: 14px; }
+
+.field label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.field .hint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  width: 100%;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 9px 11px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  transition: border-color 0.15s ease;
+}
+
+input:focus, select:focus {
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
+  border-color: var(--cyan);
+}
+
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-row form { flex: 1; display: flex; }
+
+.btn {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.15s ease, background 0.15s ease;
+  flex: 1;
+}
+
+.btn:hover { border-color: var(--text-dim); transform: translateY(-1px); }
+.btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none; }
+.btn:disabled:hover { transform: none; border-color: var(--border); }
+
+.btn-primary { background: var(--amber-dim); border-color: rgba(255, 180, 84, 0.5); color: var(--amber); }
+.btn-cyan { background: var(--cyan-dim); border-color: rgba(67, 198, 217, 0.5); color: var(--cyan); }
+.btn-ghost { background: transparent; }
+.btn-danger { background: var(--red-dim); border-color: rgba(226, 104, 92, 0.45); color: var(--red); }
+
+form { margin: 0; }
+
+/* ---------- queues ---------- */
+
+.queue-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 560px) {
+  .queue-pair { grid-template-columns: 1fr; }
+}
+
+.queue-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--panel-alt);
+  min-height: 84px;
+}
+
+.queue-box .queue-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.queue-box.amber .queue-title { color: var(--amber); }
+.queue-box.cyan .queue-title { color: var(--cyan); }
+
+.queue-items { display: flex; flex-direction: column; gap: 6px; }
+
+.queue-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: var(--font-display);
+  font-size: 12px;
+}
+
+.queue-chip .chip-name { display: flex; align-items: center; gap: 8px; }
+
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.queue-empty {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* ---------- gantt tape ---------- */
+
+.tape-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-alt);
+  overflow-x: auto;
+  position: relative;
+  padding: 14px 0;
+}
+
+.tape-wrap::before,
+.tape-wrap::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 7px;
+  background-image: radial-gradient(circle, var(--bg) 2.6px, transparent 2.7px);
+  background-size: 16px 7px;
+  background-repeat: repeat-x;
+  background-position: 6px center;
+}
+.tape-wrap::before { top: 0; }
+.tape-wrap::after { bottom: 0; }
+
+.tape-row {
+  display: flex;
+  min-width: 100%;
+  width: max-content;
+  margin: 4px 14px;
+}
+
+.tape-seg {
+  min-width: 46px;
+  flex: 0 0 auto;
+  border-right: 1px solid rgba(0,0,0,0.35);
+  padding: 10px 8px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: #0d1117;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  position: relative;
+}
+
+.tape-seg .seg-type {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+  margin-top: 1px;
+}
+
+.tape-ruler {
+  display: flex;
+  min-width: 100%;
+  width: max-content;
+  margin: 0 14px;
+}
+
+.tape-tick {
+  min-width: 46px;
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: var(--text-faint);
+  border-right: 1px dashed var(--border);
+  padding-left: 4px;
+}
+
+.tape-empty {
+  font-size: 13px;
+  color: var(--text-faint);
+  font-family: var(--font-display);
+  padding: 18px 4px;
+  text-align: center;
+}
+
+/* ---------- table ---------- */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+}
+
+.data-table th, .data-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+
+.data-table th {
+  color: var(--text-faint);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+}
+
+.data-table tbody tr:hover { background: var(--panel-alt); }
+
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+.pill.amber { background: var(--amber-dim); color: var(--amber); }
+.pill.cyan { background: var(--cyan-dim); color: var(--cyan); }
+.pill.green { background: var(--green-dim); color: var(--green); }
+.pill.dim { background: var(--panel-alt); color: var(--text-faint); }
+
+.table-scroll { overflow-x: auto; }
+
+/* ---------- stats ---------- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .stat-grid { grid-template-columns: 1fr; }
+}
+
+.stat-tile {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.stat-tile .stat-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.stat-tile .stat-value {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- log ---------- */
+
+.log-feed {
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.log-feed .log-line {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.log-feed .log-line:last-child { border-bottom: none; }
+
+.log-empty { color: var(--text-faint); font-style: italic; }
+
+.empty-note {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.footer-note {
+  margin-top: 30px;
+  font-size: 12px;
+  color: var(--text-faint);
+  text-align: center;
+  font-family: var(--font-display);
+}
+  </style>
+</head>
+<body>
+  <div class="console-shell">
+
+    <header class="console-header">
+      <div>
+        <p class="brand-eyebrow">OS · process scheduling lab</p>
+        <h1 class="brand-title">CPU TASK <span class="accent">SCHEDUL</span><span class="accent-cyan">ING</span> SIMULATOR</h1>
+      </div>
+      <div class="header-readouts">
+        <div class="readout">
+          <span class="readout-label">Clock</span>
+          <span class="readout-value">{{ clock }}</span>
+        </div>
+        <div class="readout cyan">
+          <span class="readout-label">Quantum</span>
+          <span class="readout-value">{{ quantum }}</span>
+        </div>
+      </div>
+    </header>
+
+    {% if messages %}
+      <div class="flash-stack">
+        {% for message in messages %}
+          <div class="flash {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="console-grid">
+
+      <!-- ============ LEFT: CONTROL DECK ============ -->
+      <div class="stack">
+
+        <section class="panel">
+          <p class="panel-eyebrow"><span class="dot"></span>Quantum</p>
+          <form method="post" action="{% url 'set_quantum' %}">
+            {% csrf_token %}
+            <div class="field">
+              <label for="quantum-input">Quantum (số tick tối đa mỗi lượt Round Robin)</label>
+              <input type="number" min="1" id="quantum-input" name="quantum" value="{{ quantum }}" required>
+              <span class="hint">Phải là số nguyên &ge; 1.</span>
+            </div>
+            <div class="btn-row">
+              <button type="submit" class="btn btn-cyan">Set Quantum</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel">
+          <p class="panel-eyebrow"><span class="dot"></span>Add Process</p>
+          <form method="post" action="{% url 'add_process' %}">
+            {% csrf_token %}
+            <div class="field">
+              <label for="proc-name">Process name</label>
+              <input type="text" id="proc-name" name="name" placeholder="P5" required>
+            </div>
+            <div class="field">
+              <label for="proc-burst">Burst time</label>
+              <input type="number" min="1" id="proc-burst" name="burst_time" placeholder="4" required>
+            </div>
+            <div class="field">
+              <label for="proc-type">Process type</label>
+              <select id="proc-type" name="process_type">
+                <option value="USER">USER &nbsp;(Round Robin Queue)</option>
+                <option value="SYSTEM">SYSTEM (Priority Queue)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="proc-priority">Priority</label>
+              <input type="number" id="proc-priority" name="priority" value="0">
+              <span class="hint">Chỉ dùng cho SYSTEM — số càng nhỏ, ưu tiên càng cao.</span>
+            </div>
+            <div class="btn-row">
+              <button type="submit" class="btn btn-primary">Add Process</button>
+            </div>
+          </form>
+          <form method="post" action="{% url 'load_sample' %}" style="margin-top: 10px;">
+            {% csrf_token %}
+            <div class="btn-row">
+              <button type="submit" class="btn btn-ghost" {% if sample_already_loaded %}disabled{% endif %}>
+                Nạp dữ liệu mẫu (P1–P4)
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel">
+          <p class="panel-eyebrow"><span class="dot"></span>Simulation Action</p>
+          <div class="btn-row" style="margin-bottom: 10px;">
+            <form method="post" action="{% url 'step' %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-cyan" {% if not any_remaining %}disabled{% endif %}>Step</button>
+            </form>
+            <form method="post" action="{% url 'run_all' %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-primary" {% if not any_remaining %}disabled{% endif %}>Run All</button>
+            </form>
+          </div>
+          <form method="post" action="{% url 'reset' %}">
+            {% csrf_token %}
+            <div class="btn-row">
+              <button type="submit" class="btn btn-danger">Reset</button>
+            </div>
+          </form>
+          {% if not any_remaining and has_processes %}
+            <p class="empty-note" style="margin-top:10px;">Tất cả process đã hoàn thành — xem Statistics bên phải, hoặc Reset để chạy lại.</p>
+          {% elif not has_processes %}
+            <p class="empty-note" style="margin-top:10px;">Chưa có process nào — thêm process ở trên trước khi Step / Run All.</p>
+          {% endif %}
+        </section>
+
+      </div>
+
+      <!-- ============ RIGHT: DISPLAY PANEL ============ -->
+      <div class="stack">
+
+        <section class="panel">
+          <p class="panel-eyebrow"><span class="dot"></span>Queues</p>
+          <div class="queue-pair">
+            <div class="queue-box amber">
+              <p class="queue-title">Round Robin · USER<span>{{ rr_items|length }}</span></p>
+              <div class="queue-items">
+                {% for p in rr_items %}
+                  <div class="queue-chip">
+                    <span class="chip-name"><span class="swatch" style="background:{{ p.ui_color }}"></span>{{ p.name }}</span>
+                    <span>{{ p.remaining_time }}/{{ p.burst_time }}</span>
+                  </div>
+                {% empty %}
+                  <p class="queue-empty">Round Robin Queue rỗng.</p>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="queue-box cyan">
+              <p class="queue-title">Priority Heap · SYSTEM<span>{{ pq_items|length }}</span></p>
+              <div class="queue-items">
+                {% for p in pq_items %}
+                  <div class="queue-chip">
+                    <span class="chip-name"><span class="swatch" style="background:{{ p.ui_color }}"></span>{{ p.name }}</span>
+                    <span>prio {{ p.priority }}</span>
+                  </div>
+                {% empty %}
+                  <p class="queue-empty">Priority Queue rỗng.</p>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <p class="panel-eyebrow"><span class="dot"></span>Gantt Chart — Tape Output</p>
+          <div class="tape-wrap">
+            {% if gantt_segments %}
+              <div class="tape-row">
+                {% for seg in gantt_segments %}
+                  <div class="tape-seg" style="background:{{ seg.color }}; flex-grow:{{ seg.width }};" title="{{ seg.name }}: t={{ seg.start }}-{{ seg.end }}">
+                    {{ seg.name }}
+                    <span class="seg-type">{{ seg.start }}–{{ seg.end }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+              <div class="tape-ruler">
+                {% for seg in gantt_segments %}
+                  <div class="tape-tick" style="flex-grow:{{ seg.width }};">{{ seg.start }}</div>
+                {% endfor %}
+                <div class="tape-tick" style="min-width:1px; flex-grow:0; border-right:none;">{{ clock }}</div>
+              </div>
+            {% else %}
+              <p class="tape-empty">Chưa có dữ liệu — bấm Step hoặc Run All để bắt đầu ghi tape.</p>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="panel">
+          <p class="panel-eyebrow"><span class="dot"></span>Process Register Table</p>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th><th>Type</th><th>Priority</th><th>Burst</th>
+                  <th>Remaining</th><th>Arrival</th><th>Finish</th><th>Turnaround</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in processes %}
+                  <tr>
+                    <td><span class="swatch" style="background:{{ p.ui_color }}; display:inline-block; margin-right:6px;"></span>{{ p.name }}</td>
+                    <td>
+                      {% if p.process_type == 'SYSTEM' %}
+                        <span class="pill cyan">SYSTEM</span>
+                      {% else %}
+                        <span class="pill amber">USER</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ p.priority }}</td>
+                    <td>{{ p.burst_time }}</td>
+                    <td>{{ p.remaining_time }}</td>
+                    <td>{{ p.arrival_time }}</td>
+                    <td>{% if p.finish_time is not None %}{{ p.finish_time }}{% else %}—{% endif %}</td>
+                    <td>{% if p.turnaround_time is not None %}{{ p.turnaround_time }}{% else %}—{% endif %}</td>
+                    <td>
+                      {% if p.completed %}
+                        <span class="pill green">DONE</span>
+                      {% else %}
+                        <span class="pill dim">RUNNING</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="9" class="empty-note">Chưa có process nào.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <p class="panel-eyebrow"><span class="dot"></span>Statistics</p>
+          <div class="stat-grid">
+            <div class="stat-tile">
+              <div class="stat-label">Average turnaround time</div>
+              <div class="stat-value">{{ avg_turnaround|floatformat:2 }}</div>
+            </div>
+            <div class="stat-tile">
+              <div class="stat-label">Completion ratio</div>
+              <div class="stat-value">{{ completion_ratio|floatformat:1 }}%</div>
+            </div>
+            <div class="stat-tile">
+              <div class="stat-label">Total simulation time</div>
+              <div class="stat-value">{{ total_time }}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <p class="panel-eyebrow"><span class="dot"></span>Event Log</p>
+          <div class="log-feed">
+            {% for line in logs %}
+              <div class="log-line">{{ line }}</div>
+            {% empty %}
+              <p class="log-empty">Chưa có log nào.</p>
+            {% endfor %}
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <p class="footer-note">Schedule / Process / PriorityQueue / RoundRobinQueue — logic gốc, không thay đổi · Django UI layer</p>
+  </div>
+</body>
+</html>
