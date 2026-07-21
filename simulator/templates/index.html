@@ -886,7 +886,10 @@ form { margin: 0; }
           var nxt = newDoc.querySelector(sel);
           if (cur && nxt) cur.innerHTML = nxt.innerHTML;
         });
-
+        var newSimData = newDoc.getElementById('sim-data');
+        var curSimData = document.getElementById('sim-data');
+        if (newSimData && curSimData) {
+          curSimData.dataset.anyRemaining = newSimData.dataset.anyRemaining;}
         // Đồng bộ nút Step/RunAll disabled state
         ['btn-auto'].forEach(function(id) {
           var nBtn = newDoc.getElementById(id);
