@@ -163,10 +163,11 @@ def step(request):
             if sim.gantt_history:
                 ran_name = sim.gantt_history[-1]
                 finished = next(
-                    (p for p in sim.process_storage if p.name == ran_name and p.finish_time == before_clock),
-                    None,
-                )
-                tail = f' — {ran_name} HOÀN THÀNH lúc t={before_clock}' if finished else ''
+                    (p for p in sim.process_storage if p.name == ran_name
+                     and p.completed
+                     and before_clock <= p.finish_time < sim.clock),
+                    None,)
+                tail = f' — {ran_name} HOÀN THÀNH lúc t={finished.finish_time}' if finished else''
                 ticks_ran = sim.clock - before_clock
                 sim.add_log(f'[t={before_clock}->{sim.clock}] Chạy {ran_name} ({ticks_ran} tick){tail}')
             messages.success(request, 'Đã thực hiện 1 Step.')
