@@ -42,7 +42,7 @@ def _build_context(request):
     while node is not None:
         rr_items.append(node.value)
         node = node.next
-    pq_items = [entry[2] for entry in sorted(sim.priority_queue.heap)].
+    pq_items = [entry[2] for entry in sorted(sim.priority_queue.heap)]
     for p in sim.process_storage:
         p.ui_color = _color_for(p.name)
     gantt_segments = []
