@@ -903,6 +903,7 @@ form { margin: 0; }
           _autoTimer = setTimeout(_runStep, delay);
         } else {
           stopAuto();
+          window.location.reload();
           // Nếu hết process, cập nhật lại các nút Step/RunAll
           var btnStep = document.querySelector('#step-form button');
           if (btnStep) btnStep.disabled = true;
