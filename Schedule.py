@@ -45,16 +45,21 @@ class Schedule:
             process = self.round_robin_queue.dequeue()
         else:
             return
-        process.remaining_time -= 1
-        self.gantt_history.append(process.name)
-        if process.remaining_time == 0:
-            process.finish(self.clock)
-        else:
+
+        for _ in range(self.quantum):
+            self.gantt_history.append(process.name)
+            process.remaining_time -= 1
+            if process.remaining_time == 0:
+                process.finish(self.clock)
+                self.clock += 1
+                break
+            self.clock += 1
+
+        if process.remaining_time > 0:
             if process.process_type == "SYSTEM":
                 self.priority_queue.enqueue(process)
             else:
                 self.round_robin_queue.enqueue(process)
-        self.clock += 1
     
     def run_all(self):
         while (not self.priority_queue.is_empty() or not self.round_robin_queue.is_empty() ):
