@@ -164,7 +164,8 @@ def step(request):
                     None,
                 )
                 tail = f' — {ran_name} HOÀN THÀNH lúc t={before_clock}' if finished else ''
-                sim.add_log(f'[t={before_clock}->{sim.clock}] Chạy {ran_name} (1 tick){tail}')
+                ticks_ran = sim.clock - before_clock
+                sim.add_log(f'[t={before_clock}->{sim.clock}] Chạy {ran_name} ({ticks_ran} tick){tail}')
             messages.success(request, 'Đã thực hiện 1 Step.')
     return redirect('index')
 
