@@ -142,7 +142,10 @@ def load_sample(request):
                 sim.add_process(name, burst, ptype, prio)
                 added += 1
         if added:
-            sim.add_log(f'Nạp {added} process mẫu (giống Main.py): P1..P4')
+            sim.add_log(f'Nạp {added} process mẫu: ' + ' '.join(
+            f'{name}({"SYSTEM" if ptype == "SYSTEM" else "USER"},burst={burst}{f",prio={prio}" if ptype == "SYSTEM" else ""})'
+            for name, burst, ptype, prio in SAMPLE_PROCESSES
+            if name not in existing))
             messages.success(request, f'Đã nạp {added} process mẫu.')
         else:
             messages.info(request, 'Dữ liệu mẫu đã được nạp trước đó.')
